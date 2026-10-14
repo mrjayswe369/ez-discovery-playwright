@@ -1,0 +1,8 @@
+@"
+.env
+node_modules/
+playwright-report/
+test-results/
+playwright/.cache/
+*.log
+"@ | Out-File -FilePath .gitignore -Encoding utf8
