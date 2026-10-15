@@ -1,8 +1,9 @@
-@"
-.env
 node_modules/
+.env
+.env.*
+!.env.example
 playwright-report/
 test-results/
+blob-report/
 playwright/.cache/
 *.log
-"@ | Out-File -FilePath .gitignore -Encoding utf8
