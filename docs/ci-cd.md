@@ -146,7 +146,9 @@ and duplicate results, counts/duration, and nonpassing case titles. Missing test
 results, an incomplete selected inventory, or any runtime skips fails its
 completeness check. BLOCKED retains a nonzero native Playwright result; the
 lifecycle report labels it separately. --list does not write fictional test
-outcomes. Other failed steps retain failure even when diagnostics/summary succeed.
+outcomes or create a listing-only HTML artifact. Prerequisite failures also emit
+GitHub check annotations containing configuration names, never values. Other
+failed steps retain failure even when diagnostics/summary succeed.
 
 ## Local validation and remote execution
 
@@ -188,6 +190,17 @@ run status. This session could read public metadata but could not administer
 secrets/variables/protection rules because gh was not authenticated. Optional
 manual DISC-003 was not executed on a hosted runner; its secure transport/runtime
 configuration still needs authenticated setup and live verification.
+
+The first published run for commit 9a4f713,
+[38867188877](https://github.com/mrjayswe369/ez-discovery-playwright/actions/runs/38867188877),
+completed with failure at QA prerequisite validation. Hosted checkout, runtimes,
+npm ci, TypeScript, privacy/inventory checks and browser installation passed;
+application tests did not execute. Public metadata confirmed this outcome, while
+job logs and secret/variable administration required authentication. A follow-up
+fix prevents listing-only HTML artifacts and surfaces prerequisite annotations.
+The public qa environment existed with no protection rules at inspection time;
+an authenticated administrator must configure its reviewers/branch rules and
+required secrets. No hosted regression PASS is claimed.
 
 ## Implementation inventory
 

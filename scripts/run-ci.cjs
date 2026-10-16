@@ -32,7 +32,13 @@ try {
   console.log(`CI inventory verified: ${specs.length} Chromium tests; fresh-data excluded; Nexus consistency required; duplicate ${policy.includeDuplicate ? 'enabled' : 'excluded'}.`);
   const extra = process.argv.slice(2);
   if (extra.some(arg => arg !== '--list')) throw new Error('test:ci accepts only --list; its execution policy cannot be overridden');
-  const result = spawnSync(process.execPath, [require.resolve('@playwright/test/cli'), ...args, ...extra], { stdio: 'inherit' });
-  if (result.error) throw result.error;
-  process.exitCode = result.status ?? 1;
+  if (extra.includes('--list')) {
+    // Do not invoke the HTML/lifecycle reporters for discovery-only checks.
+    for (const spec of specs) console.log(`  [chromium] ${spec.file}:${spec.line} ${spec.title} ${spec.tags.join(' ')}`);
+    console.log(`Total: ${specs.length} discovered Chromium tests; no tests executed and no execution report written.`);
+  } else {
+    const result = spawnSync(process.execPath, [require.resolve('@playwright/test/cli'), ...args], { stdio: 'inherit' });
+    if (result.error) throw result.error;
+    process.exitCode = result.status ?? 1;
+  }
 } catch (error) { console.error(error.message); process.exitCode = 1; }

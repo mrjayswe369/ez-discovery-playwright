@@ -44,4 +44,11 @@ try {
     ].join('\n'));
   }
   console.log(`CI prerequisites verified. Duplicate fixture ${policy.includeDuplicate ? 'approved; reuse-only' : 'excluded before execution'}.`);
-} catch (error) { console.error(error.message); process.exitCode = 1; }
+} catch (error) {
+  const message = error.message;
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    const escaped = message.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+    console.error(`::error title=CI prerequisites::${escaped}`);
+  } else console.error(message);
+  process.exitCode = 1;
+}
