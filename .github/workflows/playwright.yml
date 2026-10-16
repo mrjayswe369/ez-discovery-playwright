@@ -1,0 +1,137 @@
+name: EZ Discovery Playwright CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      include_duplicate:
+        description: Run DISC-003 with approved registered fixture and existing pending attempt
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One QA environment across push, PR and manual runs; never cancel an active upload.
+concurrency:
+  group: ez-discovery-qa
+  cancel-in-progress: false
+
+jobs:
+  chromium:
+    name: Required repeatable Chromium regression
+    runs-on: ubuntu-24.04
+    environment: qa
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      CI_DUPLICATE_ENABLED: ${{ github.event_name == 'workflow_dispatch' && inputs.include_duplicate && 'true' || 'false' }}
+      CI_DUPLICATE_APPROVED: ${{ vars.CI_DUPLICATE_APPROVED }}
+      NEXUS_DEFAULT_DEPLOYMENT: ${{ vars.NEXUS_DEFAULT_DEPLOYMENT || 'Lab' }}
+      DISCOVERY_EXISTING_WORKFLOW: ${{ vars.DISCOVERY_EXISTING_WORKFLOW }}
+      DISCOVERY_CLIENT_ID: ${{ vars.DISCOVERY_CLIENT_ID || '018204' }}
+      DISCOVERY_REGISTERED_SOURCE_NAME: ${{ vars.DISCOVERY_REGISTERED_SOURCE_NAME }}
+      DISCOVERY_REGISTERED_CLUSTER_ID: ${{ vars.DISCOVERY_REGISTERED_CLUSTER_ID }}
+      DISCOVERY_REGISTERED_SHA256: ${{ vars.DISCOVERY_REGISTERED_SHA256 }}
+      DISCOVERY_DUPLICATE_ATTEMPT_WORKFLOW: ${{ vars.DISCOVERY_DUPLICATE_ATTEMPT_WORKFLOW }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up private diagnostics runtime
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+
+      - name: Install locked dependencies
+        id: install
+        run: npm ci
+
+      - name: TypeScript validation
+        id: typecheck
+        run: npx tsc --noEmit
+
+      - name: Verify trace privacy and selected test inventory
+        run: |
+          python scripts/test_trace_privacy.py
+          npm run test:ci -- --list
+
+      - name: Install Chromium and system dependencies
+        id: browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate QA prerequisites and prepare optional approved fixture
+        id: prerequisites
+        run: node scripts/ci-prerequisites.cjs
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          DISCOVERY_REGISTERED_GZIP_BASE64: ${{ secrets.DISCOVERY_REGISTERED_GZIP_BASE64 }}
+
+      - name: Execute required repeatable suite
+        id: tests
+        timeout-minutes: 15
+        run: npm run test:ci
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+
+      - name: Audit diagnostics before artifact upload
+        id: audit
+        if: always()
+        run: python scripts/audit_ci_artifacts.py
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          DISCOVERY_REGISTERED_GZIP_BASE64: ${{ secrets.DISCOVERY_REGISTERED_GZIP_BASE64 }}
+
+      - name: Remove private provisioning copy
+        if: always()
+        run: node scripts/cleanup-ci-fixture.cjs
+
+      - name: Publish CI summary and verify execution completeness
+        if: always()
+        run: node scripts/ci-summary.cjs
+        env:
+          CI_INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          CI_TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          CI_BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          CI_PREREQUISITES_OUTCOME: ${{ steps.prerequisites.outcome }}
+          CI_TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          CI_ARTIFACT_AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+
+      - name: Upload Playwright HTML report
+        if: always() && steps.audit.outcome == 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: playwright-report-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload sanitized failure diagnostics and lifecycle results
+        if: always() && steps.audit.outcome == 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: safe-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/**/private-failure.png
+            test-results/**/private-trace.zip
+            test-results/discovery-lifecycle-summary.json
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,4 +1,5 @@
-import { Page, Locator, expect } from '@playwright/test';
+
+import { Page, Locator } from '@playwright/test';
 
 export class LoginPage {
   readonly page: Page;
@@ -8,18 +9,27 @@ export class LoginPage {
 
   constructor(page: Page) {
     this.page = page;
-    // More flexible locators
-    this.emailInput = page.getByPlaceholder(/email/i).or(page.locator('input[type="email"], input[placeholder*="Email" i]')).first();
-    this.passwordInput = page.getByPlaceholder(/password/i).or(page.locator('input[type="password"]')).first();
-    this.loginButton = page.getByRole('button', { name: /login/i });
+
+    // Page locators
+    this.emailInput = page.getByPlaceholder(/email/i);
+    this.passwordInput = page.getByPlaceholder(/password/i);
+    this.loginButton = page.getByRole('button', {
+      name: /log\s*in/i
+    });
   }
 
-  async goto() {
-    await this.page.goto('/login', { waitUntil: 'networkidle' });
-    await expect(this.loginButton).toBeVisible({ timeout: 15000 });
+  // Navigate to login page
+  async goto(): Promise<void> {
+    await this.page.goto('/login', {
+      waitUntil: 'domcontentloaded'
+    });
   }
 
-  async login(email: string, password: string) {
+  // Perform login action
+  async login(
+    email: string,
+    password: string
+  ): Promise<void> {
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
     await this.loginButton.click();

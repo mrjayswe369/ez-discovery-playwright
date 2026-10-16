@@ -1,23 +1,55 @@
+
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
-dotenv.config();
+
+// GitHub-injected values are authoritative; CI must not depend on a local .env.
+if (!process.env.CI) dotenv.config({ quiet: true });
 
 export default defineConfig({
   testDir: './tests',
+
+  // Execute independent tests in parallel
   fullyParallel: true,
+
+  // Prevent accidental test.only in CI
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : undefined,
-  reporter: [['html'], ['list']],
+
+  // Keep failures visible; no automatic retries.
+  retries: 0,
+
+  // Control parallel workers
+  workers: process.env.CI ? 1 : undefined,
+
+  // Test reports
+  reporter: [
+    ['./reporters/PrivacyReporter.ts'],
+    ['./reporters/DiscoveryLifecycleReporter.ts'],
+    ['html', { open: 'never' }],
+    ['list']
+  ],
+
   use: {
-    baseURL: 'https://ezdiscovery-qa-ui-bhh0grbsfcfsfea2.southindia-01.azurewebsites.net/login',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    baseURL: process.env.BASE_URL,
+
+    // Capture debugging evidence
+    trace: process.env.CI ? 'off' : 'retain-on-failure',
+    screenshot: process.env.CI ? 'off' : 'only-on-failure',
+    video: process.env.CI ? 'off' : 'retain-on-failure',
   },
+
+  // Cross-browser testing
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
   ],
 });

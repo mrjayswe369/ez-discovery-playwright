@@ -4,7 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "playwright test",
+    "test:discovery": "playwright test tests/discovery-workflow.spec.ts --project=chromium --workers=1",
+    "test:dashboard": "playwright test tests/enterprise-dashboard.spec.ts --project=chromium --workers=1",
+    "test:duplicate": "playwright test tests/discovery-duplicate.spec.ts --project=chromium --workers=1",
+    "test:nexus": "playwright test tests/nexus.spec.ts --project=chromium --workers=1",
+    "test:ci": "node scripts/run-ci.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",

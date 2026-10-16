@@ -7,3 +7,11 @@ test-results/
 blob-report/
 playwright/.cache/
 *.log
+generated-discovery/
+private-fixtures/
+.discovery-upload-history/
+.discovery-fixture-state/
+*.gz
+*.gzip
+*.zip
+__pycache__/
